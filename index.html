@@ -2006,6 +2006,7 @@ try {
 // ═══════════════════════════════════════════════════
 // DEVICE DETECTION
 // ═══════════════════════════════════════════════════
+// Device detection — used for UI hints only, NOT to block features
 const IS_IOS   = /iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 
 // ── SECURITY CONSTANTS ──
@@ -2027,7 +2028,22 @@ function validateImageFile(file, statusId){
   return true;
 }
 const IN_IFRAME= (()=>{try{return window.self!==window.top;}catch(e){return true;}})();
-const CAN_WEBM = !IS_IOS&&!IN_IFRAME&&typeof MediaRecorder!=='undefined'&&typeof HTMLCanvasElement!=='undefined'&&typeof HTMLCanvasElement.prototype.captureStream!=='undefined';
+// CAN_WEBM: pure capability check — if the APIs exist, let it try
+// Removed IS_IOS block so iPad Chrome can export video if browser supports it
+const CAN_WEBM = (function(){
+  try{
+    if(IN_IFRAME) return false;
+    if(typeof MediaRecorder === 'undefined') return false;
+    if(!HTMLCanvasElement.prototype.captureStream) return false;
+    // Quick test: can we actually create a MediaRecorder from a canvas stream?
+    var testCv = document.createElement('canvas');
+    testCv.width=2; testCv.height=2;
+    var stream = testCv.captureStream(1);
+    var mimeOk = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') || 
+                 MediaRecorder.isTypeSupported('video/webm');
+    return stream.getTracks().length > 0 && mimeOk;
+  }catch(e){ return false; }
+})();
 
 // ═══════════════════════════════════════════════════
 // SHARED CONSTANTS
@@ -5863,19 +5879,18 @@ const HOOK = (() => {
     sharedDrawBrand(g,W,H,1);
 
     // Main hook text - massive
-    var hsz=Math.round(W*.075);
-    g.font='900 '+Math.round((state.headSize||72)*(W/1080))+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
+    var hsz=Math.round((state.headSize||75)*(W/1080));
+    g.font='900 '+hsz+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
     var lines=sharedWrap(g,state.text||'Your hook here',W*.84,5);
     var totalH=lines.length*hsz*1.25;
     var startY=H*.5-totalH/2+hsz*.5;
     g.textAlign='center';
     g.shadowColor='rgba(0,0,0,.95)';g.shadowBlur=W*.025;g.shadowOffsetY=W*.004;
+    var hookColor=state.headColor||'#f5f0e8';
     lines.forEach(function(l,i){
-      // Gradient text: white to gold
       var y=startY+i*hsz*1.25;
-      if(style==='alert'){g.fillStyle='#ffffff';}
-      else if(style==='question'){g.fillStyle='#f5f0e8';}
-      else{g.fillStyle='#f5f0e8';}
+      g.fillStyle=hookColor;
+
       g.fillText(l,W/2,y);
     });
     g.shadowBlur=0;g.shadowOffsetY=0;
@@ -5890,9 +5905,9 @@ const HOOK = (() => {
 
     // Sub line
     if(state.sub&&state.sub.trim()){
-      var ssz=Math.round(W*.034);
-      g.font='500 '+ssz+'px "DM Sans",sans-serif';
-      g.fillStyle='rgba(200,195,185,.75)';g.textAlign='center';
+    var ssz=Math.round((state.bodySize||34)*(W/1080));
+    g.font='500 '+ssz+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
+    g.fillStyle=state.bodyColor||'rgba(200,195,185,.75)';
       g.shadowColor='rgba(0,0,0,.7)';g.shadowBlur=W*.01;
       g.fillText(state.sub,W/2,startY+totalH+hsz*.6+ssz);
       g.shadowBlur=0;
