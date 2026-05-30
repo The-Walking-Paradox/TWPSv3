@@ -554,6 +554,9 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
   <div class="tool-tab" id="tn-caption" onclick="switchTool('caption')">
     <div class="tt-icon">✍️</div><div class="tt-name">Caption</div>
   </div>
+  <div class="tool-tab" id="tn-carousel" onclick="switchTool('carousel')">
+    <div class="tt-icon">🃏</div><div class="tt-name">Swipe</div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -1934,6 +1937,30 @@ window.onerror = function(msg, src, line, col, err) {
 
 (function(){
 'use strict';
+
+// ── WP NAMESPACE ──
+var WP = {
+  log: function(level, msg){
+    if(level === 'error') console.error('[WP]', msg);
+    else console.log('[WP]', msg);
+  },
+  safeRender: function(fn, cv, name){
+    try{ fn(); }
+    catch(e){
+      console.error('[WP] Render error in '+name, e);
+      try{
+        var g = cv.getContext('2d');
+        var W = cv.width, H = cv.height;
+        g.fillStyle = '#0c0d15';
+        g.fillRect(0,0,W,H);
+        g.fillStyle = '#c9334a';
+        g.font = 'bold '+(W*.04)+'px DM Sans,sans-serif';
+        g.textAlign = 'center';
+        g.fillText('Render error: '+e.message, W/2, H/2);
+      }catch(e2){}
+    }
+  },
+};
 
 // ── STARTUP ERROR CATCH — surfaces real errors ──
 try {
@@ -4087,10 +4114,10 @@ function qInit(){qFitCv();buildBgRow('qBgRow','himalaya',id=>{qS.bg=id;qRender(0
 // ═══════════════════════════════════════════════════
 let activeTool='news';
 const TOOL_BARS={news:['nBarMob','nBarDesk'],top10:['vBarMob','vBarDesk'],quiz:['qBarMob','qBarDesk'],intro:['iBarMob','iBarDesk'],quote:['quoteBars','quoteBarsDesk'],dyk:['dykBarMob','dykBarDesk'],shloka:['shlokaBarMob','shlokaBarDesk'],compare:['compareBarMob','compareBarDesk'],paradox:['paradoxBarMob','paradoxBarDesk'],poll:['pollBarMob','pollBarDesk'],hook:['hookBarMob','hookBarDesk'],caption:['captionBarMob','captionBarDesk']};
-let _iInited=false,_vInited=false,_qInited=false,_qcInited=false,_dykInited=false,_slInited=false,_cmpInited=false,_pdxInited=false,_pollInited=false,_hookInited=false,_capInited=false;
+let _iInited=false,_vInited=false,_qInited=false,_qcInited=false,_dykInited=false,_slInited=false,_cmpInited=false,_pdxInited=false,_pollInited=false,_hookInited=false,_capInited=false,_carInited=false;
 function switchTool(tool){
   activeTool=tool;
-  ['news','top10','quiz','intro','quote','dyk','shloka','compare','paradox','poll','hook','caption'].forEach(t=>{
+  ['news','top10','quiz','intro','quote','dyk','shloka','compare','paradox','poll','hook','caption','carousel'].forEach(t=>{
     document.getElementById('ts-'+t).classList.toggle('on',t===tool);
     document.getElementById('tn-'+t).classList.toggle('on',t===tool);
   });
@@ -4098,6 +4125,15 @@ function switchTool(tool){
   if(tool==='intro'&&!_iInited){_iInited=true;setTimeout(()=>{iInit();},50);}
   if(tool==='top10'&&!_vInited){_vInited=true;setTimeout(()=>{vFitCv();vBuildItems();buildBgRow('vBgRow','himalaya',id=>{vS.bg=id;vRender(0);});vRender(0);},50);}
   if(tool==='quiz'&&!_qInited){_qInited=true;setTimeout(()=>{qFitCv();qBuildList();buildBgRow('qBgRow','himalaya',id=>{qS.bg=id;qRender(0);});qRender(0);},50);}
+  if(tool==='quote'  &&!_qcInited) {_qcInited=true;  setTimeout(function(){QC.init();},60);}
+  if(tool==='dyk'    &&!_dykInited){_dykInited=true;  setTimeout(function(){DYK.init();},60);}
+  if(tool==='shloka' &&!_slInited) {_slInited=true;   setTimeout(function(){SHLOKA.init();},60);}
+  if(tool==='compare'&&!_cmpInited){_cmpInited=true;  setTimeout(function(){COMPARE.init();},60);}
+  if(tool==='paradox'&&!_pdxInited){_pdxInited=true;  setTimeout(function(){PARADOX.init();},60);}
+  if(tool==='poll'   &&!_pollInited){_pollInited=true; setTimeout(function(){POLL.init();},60);}
+  if(tool==='hook'   &&!_hookInited){_hookInited=true; setTimeout(function(){HOOK.init();},60);}
+  if(tool==='caption'  &&!_capInited)   {_capInited=true;   setTimeout(function(){CAPTION.init();},60);}
+  if(tool==='carousel' &&!_carInited)   {_carInited=true;   setTimeout(function(){CAROUSEL.init();},60);}
   // Action bars — hide all, show active
   Object.values(TOOL_BARS).forEach(bars=>bars.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';}));
   checkLayout();
@@ -5170,6 +5206,7 @@ const SHLOKA = (() => {
   let cv, g2;
   function getDims(){return state.fmt==='story'?{W:1080,H:1920}:{W:1080,H:1080};}
   function fitCv(){
+    if(!cv)return;
     if(!cv)return;
     const d=getDims();const W=d.W,H=d.H;
     const mxW=Math.max(cv.parentElement?cv.parentElement.clientWidth:280,280);
@@ -6424,6 +6461,391 @@ var REEL = (function(){
 
 })();
 
+
+// ═══════════════════════════════════════════════════════════════
+//  CAROUSEL — SWIPE CARD MAKER
+//  Creates a series of image cards (Facebook/Instagram carousel)
+// ═══════════════════════════════════════════════════════════════
+var CAROUSEL = (function(){
+
+  var state = {
+    fmt: 'story',
+    style: 'dark',
+    current: 0,
+    slides: [
+      { headline: '', body: '', label: '' }
+    ],
+  };
+
+  var STYLES = {
+    dark: {
+      bg: function(g,W,H){
+        var gr = g.createLinearGradient(0,0,W*.3,H);
+        gr.addColorStop(0,'#080810'); gr.addColorStop(1,'#0e0e1c');
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        // Subtle radial glow top
+        var rg = g.createRadialGradient(W*.5,0,0,W*.5,0,H*.6);
+        rg.addColorStop(0,'rgba(232,201,106,.04)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg; g.fillRect(0,0,W,H);
+      },
+      headline: '#f5f0e8', body: 'rgba(210,203,190,.85)',
+      accent: '#e8c96a', label: 'rgba(232,201,106,.7)',
+      rule: 'rgba(232,201,106,.25)',
+    },
+    crimson: {
+      bg: function(g,W,H){
+        var gr = g.createLinearGradient(0,0,0,H);
+        gr.addColorStop(0,'#0e0204'); gr.addColorStop(1,'#1a0508');
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        var rg = g.createRadialGradient(W*.5,H*.3,0,W*.5,H*.3,W*.7);
+        rg.addColorStop(0,'rgba(201,51,74,.12)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg; g.fillRect(0,0,W,H);
+      },
+      headline: '#fff5f7', body: 'rgba(230,200,205,.85)',
+      accent: '#c9334a', label: 'rgba(201,51,74,.9)',
+      rule: 'rgba(201,51,74,.3)',
+    },
+    gold: {
+      bg: function(g,W,H){
+        var gr = g.createLinearGradient(0,0,0,H);
+        gr.addColorStop(0,'#0a0800'); gr.addColorStop(1,'#160f00');
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        var rg = g.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.65);
+        rg.addColorStop(0,'rgba(232,201,106,.1)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg; g.fillRect(0,0,W,H);
+      },
+      headline: '#fdf5e0', body: 'rgba(235,220,180,.85)',
+      accent: '#e8c96a', label: 'rgba(232,201,106,.8)',
+      rule: 'rgba(232,201,106,.3)',
+    },
+    mountain: {
+      bg: function(g,W,H){
+        var gr = g.createLinearGradient(0,0,0,H);
+        gr.addColorStop(0,'#060d18'); gr.addColorStop(1,'#04080f');
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        sharedDrawMtn(g,W,H);
+      },
+      headline: '#f0ece4', body: 'rgba(200,195,185,.85)',
+      accent: '#c9334a', label: 'rgba(232,201,106,.75)',
+      rule: 'rgba(232,201,106,.2)',
+    },
+  };
+
+  var cv, g2, W, H;
+
+  function getDims(){
+    return state.fmt === 'story' ? {W:1080,H:1920} : {W:1080,H:1080};
+  }
+
+  function fitCv(){
+    if(!cv) return;
+    var d = getDims(); W=d.W; H=d.H;
+    var mxW = Math.max(cv.parentElement ? cv.parentElement.clientWidth : 280, 280);
+    var mxH = Math.max(window.innerHeight * .44, 300);
+    var pw, ph;
+    if(W/H >= 1){ pw=Math.min(mxW,520); ph=pw*(H/W); if(ph>mxH){ph=mxH;pw=ph*(W/H);} }
+    else { ph=Math.min(mxH,420); pw=ph*(W/H); if(pw>mxW){pw=mxW;ph=pw*(H/W);} }
+    cv.style.width=pw+'px'; cv.style.height=ph+'px'; cv.width=W; cv.height=H;
+  }
+
+  function render(){
+    if(!cv){ init(); }
+    if(!cv || !g2) return;
+    WP.safeRender(function(){ _draw(state.current); }, cv, 'CAROUSEL');
+  }
+
+  function _draw(idx){
+    fitCv();
+    var pal = STYLES[state.style] || STYLES.dark;
+    W = cv.width; H = cv.height;
+    var slide = state.slides[idx] || state.slides[0];
+    var pp = pip(W);
+    var total = state.slides.length;
+
+    // Background
+    pal.bg(g2, W, H);
+
+    // Nepal pip
+    g2.fillStyle='#c9334a'; g2.fillRect(0,0,pp,H*.5);
+    g2.fillStyle='#4a7fc0'; g2.fillRect(0,H*.5,pp,H*.5);
+
+    // Top gradient
+    var tf = g2.createLinearGradient(0,0,0,H*.2);
+    tf.addColorStop(0,'rgba(0,0,0,.7)'); tf.addColorStop(1,'rgba(0,0,0,0)');
+    g2.fillStyle=tf; g2.fillRect(0,0,W,H*.2);
+
+    // Slide number dots — top center
+    var dotY = H * (state.fmt==='story' ? .055 : .07);
+    var dotR = Math.round(W*.013);
+    var dotGap = dotR*2.8;
+    var totalDotW = (total-1)*dotGap + dotR*2;
+    var dotStartX = W/2 - totalDotW/2 + dotR;
+    for(var d=0; d<total; d++){
+      g2.beginPath();
+      g2.arc(dotStartX + d*dotGap, dotY, dotR*(d===idx?1.4:1), 0, Math.PI*2);
+      g2.fillStyle = d===idx ? pal.accent : 'rgba(255,255,255,.25)';
+      g2.fill();
+    }
+
+    // Label / category
+    if(slide.label && slide.label.trim()){
+      var lblSz = Math.round(W*.022);
+      g2.font = '700 '+lblSz+'px "DM Sans",sans-serif';
+      if('letterSpacing' in g2) g2.letterSpacing='2px';
+      g2.fillStyle = pal.label;
+      g2.textAlign = 'left';
+      g2.fillText(slide.label.toUpperCase(), pp+W*.07, H*.18);
+      if('letterSpacing' in g2) g2.letterSpacing='0px';
+      // Rule under label
+      g2.fillStyle = pal.rule.replace ? pal.rule : 'rgba(232,201,106,.25)';
+      g2.fillRect(pp+W*.07, H*.19, W*.3, Math.max(1,W*.002));
+    }
+
+    // Headline
+    var headTxt = slide.headline || 'Slide '+(idx+1);
+    var hSz = Math.round(W*.065);
+    // Auto-shrink if long
+    if(headTxt.length > 40) hSz = Math.round(W*.052);
+    if(headTxt.length > 70) hSz = Math.round(W*.042);
+    g2.font = '800 '+hSz+'px "DM Sans",sans-serif';
+    g2.fillStyle = pal.headline;
+    g2.textAlign = 'left';
+    g2.shadowColor = 'rgba(0,0,0,.7)';
+    g2.shadowBlur = W*.02;
+    var hX = pp+W*.07;
+    var hMaxW = W*.86-pp;
+    var hLines = sharedWrap(g2, headTxt, hMaxW, 8);
+    var hY = H * (state.fmt==='story' ? .32 : .30);
+    hLines.forEach(function(line,i){
+      g2.fillText(line, hX, hY + i*hSz*1.3);
+    });
+    g2.shadowBlur = 0;
+
+    // Accent rule between headline and body
+    var ruleY = hY + hLines.length*hSz*1.3 + hSz*.5;
+    var ruleGr = g2.createLinearGradient(hX,0,hX+W*.35,0);
+    ruleGr.addColorStop(0, pal.accent); ruleGr.addColorStop(1,'rgba(0,0,0,0)');
+    g2.fillStyle = ruleGr;
+    g2.fillRect(hX, ruleY, W*.35, Math.max(2,W*.003));
+
+    // Body text
+    if(slide.body && slide.body.trim()){
+      var bSz = Math.round(W*.038);
+      g2.font = '400 '+bSz+'px "DM Sans",sans-serif';
+      g2.fillStyle = pal.body;
+      g2.textAlign = 'left';
+      var bY = ruleY + bSz*1.6;
+      var bLines = sharedWrap(g2, slide.body, hMaxW, 12);
+      bLines.forEach(function(line,i){
+        g2.fillText(line, hX, bY + i*bSz*1.55);
+      });
+    }
+
+    // Bottom strip
+    g2.fillStyle = 'rgba(4,4,10,.9)';
+    g2.fillRect(0, H*.92, W, H*.08);
+    g2.strokeStyle = 'rgba(232,201,106,.15)';
+    g2.lineWidth = 1;
+    g2.beginPath(); g2.moveTo(0,H*.92); g2.lineTo(W,H*.92); g2.stroke();
+
+    // Slide counter bottom left
+    var cntSz = Math.round(W*.022);
+    g2.font = '600 '+cntSz+'px "DM Sans",sans-serif';
+    g2.fillStyle = 'rgba(232,201,106,.6)';
+    g2.textAlign = 'left';
+    g2.fillText((idx+1)+' / '+total, pp+W*.06, H*.965);
+
+    // Swipe hint on all but last slide
+    if(idx < total-1){
+      var hintSz = Math.round(W*.02);
+      g2.font = '400 '+hintSz+'px "DM Sans",sans-serif';
+      g2.fillStyle = 'rgba(160,155,145,.5)';
+      g2.textAlign = 'right';
+      g2.fillText('swipe ›', W*.94, H*.965);
+    }
+
+    sharedDrawWatermark(g2, W, H);
+  }
+
+  function buildSlideList(){
+    var el = document.getElementById('carSlideList');
+    if(!el) return;
+    el.innerHTML = '';
+    state.slides.forEach(function(slide, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(i===state.current?'var(--lift)':'var(--card)')+';border:1.5px solid '+(i===state.current?'var(--gd)':'var(--b2)')+';border-radius:8px;cursor:pointer';
+      var num = document.createElement('div');
+      num.style.cssText = 'width:22px;height:22px;border-radius:50%;background:'+(i===state.current?'var(--gd)':'var(--b2)')+';color:'+(i===state.current?'var(--inv)':'var(--t2)')+';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0';
+      num.textContent = i+1;
+      var preview = document.createElement('div');
+      preview.style.cssText = 'flex:1;font-size:11px;color:var(--t2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis';
+      preview.textContent = slide.headline || '(empty slide)';
+      var del = document.createElement('button');
+      del.style.cssText = 'background:none;border:none;color:var(--t3);font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0';
+      del.textContent = '✕';
+      del.onclick = (function(idx){ return function(e){ e.stopPropagation(); deleteSlide(idx); }; })(i);
+      row.appendChild(num); row.appendChild(preview);
+      if(state.slides.length > 1) row.appendChild(del);
+      row.onclick = (function(idx){ return function(){ goToSlide(idx); }; })(i);
+      el.appendChild(row);
+    });
+    // Update count
+    var cnt = document.getElementById('carSlideCount');
+    if(cnt) cnt.textContent = '('+state.slides.length+'/10)';
+    // Update nav
+    updateNav();
+  }
+
+  function updateNav(){
+    var nav = document.getElementById('carNavLabel');
+    if(nav) nav.textContent = (state.current+1)+' / '+state.slides.length;
+    var num = document.getElementById('carSlideNum');
+    if(num) num.textContent = state.current+1;
+  }
+
+  function loadSlideIntoEditor(){
+    var slide = state.slides[state.current];
+    var h = document.getElementById('carHeadline');
+    var b = document.getElementById('carBody');
+    var l = document.getElementById('carLabel');
+    if(h) h.value = slide.headline || '';
+    if(b) b.value = slide.body || '';
+    if(l) l.value = slide.label || '';
+  }
+
+  function goToSlide(idx){
+    state.current = Math.max(0, Math.min(idx, state.slides.length-1));
+    loadSlideIntoEditor();
+    buildSlideList();
+    render();
+  }
+
+  function addSlide(){
+    if(state.slides.length >= 10){
+      setToast('Maximum 10 slides per carousel.'); return;
+    }
+    state.slides.push({ headline:'', body:'', label: state.slides[0].label || '' });
+    goToSlide(state.slides.length-1);
+  }
+
+  function deleteSlide(idx){
+    if(state.slides.length <= 1) return;
+    state.slides.splice(idx,1);
+    if(state.current >= state.slides.length) state.current = state.slides.length-1;
+    loadSlideIntoEditor();
+    buildSlideList();
+    render();
+  }
+
+  function updateSlide(){
+    var slide = state.slides[state.current];
+    var h = document.getElementById('carHeadline');
+    var b = document.getElementById('carBody');
+    var l = document.getElementById('carLabel');
+    if(h) slide.headline = h.value;
+    if(b) slide.body = b.value;
+    if(l) slide.label = l.value;
+    buildSlideList();
+    render();
+  }
+
+  function prevSlide(){ goToSlide(state.current-1); }
+  function nextSlide(){ goToSlide(state.current+1); }
+
+  function setStyle(s){
+    state.style = s;
+    ['Dark','Crimson','Gold','Mtn'].forEach(function(k){
+      var el = document.getElementById('carStyle'+k);
+      if(el) el.classList.toggle('on', k.toLowerCase()===s || (k==='Mtn'&&s==='mountain'));
+    });
+    render();
+  }
+
+  function setFmt(f){
+    state.fmt = f;
+    document.getElementById('carFmtStory').classList.toggle('on', f==='story');
+    document.getElementById('carFmtSquare').classList.toggle('on', f==='square');
+    fitCv(); render();
+  }
+
+  function saveSlide(){
+    if(!cv){init();} if(!cv) return;
+    var saved = state.current;
+    var d = getDims(); cv.width=d.W; cv.height=d.H; W=d.W; H=d.H;
+    _draw(saved);
+    var dataUrl = cv.toDataURL('image/png');
+    if(IS_IOS){
+      showSaveOverlay(dataUrl);
+    } else {
+      var b = atob(dataUrl.split(',')[1]);
+      var arr = new Uint8Array(b.length);
+      for(var i=0;i<b.length;i++) arr[i]=b.charCodeAt(i);
+      dlBlob(new Blob([arr],{type:'image/png'}), 'walkingparadox-carousel-'+(saved+1)+'.png');
+      setToast('Slide '+(saved+1)+' saved!');
+    }
+    fitCv(); setTimeout(render,50);
+  }
+
+  async function downloadAll(){
+    if(!cv){init();} if(!cv) return;
+    if(state.slides.length === 1){
+      saveSlide(); return;
+    }
+    if(typeof JSZip === 'undefined'){
+      setToast('Saving slides one by one...'); 
+      // Fallback: save one at a time
+      for(var i=0;i<state.slides.length;i++){
+        state.current = i;
+        var d2=getDims();cv.width=d2.W;cv.height=d2.H;W=d2.W;H=d2.H;
+        _draw(i);
+        await new Promise(function(r){setTimeout(r,100);}); 
+      }
+      return;
+    }
+    setToast('Building ZIP...');
+    var zip = new JSZip();
+    var orig = state.current;
+    var d = getDims(); cv.width=d.W; cv.height=d.H; W=d.W; H=d.H;
+    for(var i=0; i<state.slides.length; i++){
+      _draw(i);
+      var dataUrl = cv.toDataURL('image/png');
+      var b64 = dataUrl.split(',')[1];
+      zip.file('slide_'+(i<9?'0':'')+(i+1)+'.png', b64, {base64:true});
+      await new Promise(function(r){setTimeout(r,30);});
+    }
+    var blob = await zip.generateAsync({type:'blob'});
+    dlBlob(blob, 'walkingparadox-carousel-'+state.slides.length+'slides.zip');
+    setToast('All '+state.slides.length+' slides downloaded!');
+    // Restore
+    state.current = orig;
+    fitCv(); setTimeout(render,50);
+  }
+
+  function init(){
+    cv = document.getElementById('carCv');
+    if(!cv){ WP.log('error','CAROUSEL: canvas not found'); return; }
+    g2 = cv.getContext('2d');
+    fitCv();
+    loadSlideIntoEditor();
+    buildSlideList();
+    render();
+    WP.log('info','CAROUSEL initialized');
+  }
+
+  function resize(){ if(cv){ fitCv(); render(); } }
+
+  return {
+    init:init, resize:resize, render:render,
+    addSlide:addSlide, deleteSlide:deleteSlide,
+    updateSlide:updateSlide, goToSlide:goToSlide,
+    prevSlide:prevSlide, nextSlide:nextSlide,
+    setStyle:setStyle, setFmt:setFmt,
+    saveSlide:saveSlide, downloadAll:downloadAll,
+    state:state,
+  };
+
+})();
+
 // ── EXPOSE TO WINDOW ──
 if(typeof cancelSrOverlay !== 'undefined') window.cancelSrOverlay = cancelSrOverlay;
 if(typeof closeSaveOverlay !== 'undefined') window.closeSaveOverlay = closeSaveOverlay;
@@ -6491,6 +6913,7 @@ if(typeof POLL !== 'undefined') window.POLL = POLL;
 if(typeof HOOK !== 'undefined') window.HOOK = HOOK;
 if(typeof CAPTION !== 'undefined') window.CAPTION = CAPTION;
 if(typeof REEL !== 'undefined') window.REEL = REEL;
+if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
 if(typeof QC !== 'undefined') window.QC = QC;
 if(typeof DYK !== 'undefined') window.DYK = DYK;
 if(typeof SHLOKA !== 'undefined') window.SHLOKA = SHLOKA;
@@ -6500,6 +6923,7 @@ if(typeof POLL !== 'undefined') window.POLL = POLL;
 if(typeof HOOK !== 'undefined') window.HOOK = HOOK;
 if(typeof CAPTION !== 'undefined') window.CAPTION = CAPTION;
 if(typeof REEL !== 'undefined') window.REEL = REEL;
+if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
 
 
 } catch(startupErr) {
@@ -6511,5 +6935,80 @@ if(typeof REEL !== 'undefined') window.REEL = REEL;
 }
 
 })();</script>
+
+<!-- ══════════════════════════════════════════
+     CAROUSEL — SWIPE CARD MAKER
+══════════════════════════════════════════ -->
+<div class="tool-section" id="ts-carousel">
+  <div class="side-panel">
+    <div class="side-inner">
+
+      <!-- Slide manager -->
+      <div>
+        <div class="sec-lbl">Slides <span id="carSlideCount" style="color:var(--t2);font-size:9px;letter-spacing:0;text-transform:none;font-weight:400"></span></div>
+        <div id="carSlideList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+        <button onclick="CAROUSEL.addSlide()" style="width:100%;padding:10px;background:var(--lift);border:1.5px dashed var(--b2);color:var(--gd);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer">+ Add Slide</button>
+      </div>
+
+      <!-- Current slide content -->
+      <div id="carSlideEditor">
+        <div class="sec-lbl">Slide <span id="carSlideNum">1</span> Content</div>
+        <div>
+          <label class="lbl">Headline</label>
+          <textarea class="fi" id="carHeadline" rows="2" placeholder="Bold fact or statement..." oninput="CAROUSEL.updateSlide()"></textarea>
+        </div>
+        <div>
+          <label class="lbl">Body</label>
+          <textarea class="fi" id="carBody" rows="3" placeholder="Supporting detail or context..." oninput="CAROUSEL.updateSlide()"></textarea>
+        </div>
+        <div>
+          <label class="lbl">Category / Label</label>
+          <input class="fi" id="carLabel" placeholder="Economy · Budget 2083" oninput="CAROUSEL.updateSlide()" style="margin-bottom:0"/>
+        </div>
+      </div>
+
+      <!-- Style -->
+      <div>
+        <div class="sec-lbl">Style</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="carStyleDark"    onclick="CAROUSEL.setStyle('dark')">Dark</button>
+          <button class="chip-btn"    id="carStyleCrimson" onclick="CAROUSEL.setStyle('crimson')">Crimson</button>
+          <button class="chip-btn"    id="carStyleGold"    onclick="CAROUSEL.setStyle('gold')">Gold</button>
+          <button class="chip-btn"    id="carStyleMtn"     onclick="CAROUSEL.setStyle('mountain')">Mountain</button>
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div>
+        <div class="sec-lbl">Format</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="carFmtStory"  onclick="CAROUSEL.setFmt('story')">📱 9:16</button>
+          <button class="chip-btn"    id="carFmtSquare" onclick="CAROUSEL.setFmt('square')">⬛ 1:1</button>
+        </div>
+      </div>
+
+      <!-- Slide counter indicator -->
+      <div style="background:var(--card);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--t3);margin-bottom:6px">NAVIGATE SLIDES</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+          <button onclick="CAROUSEL.prevSlide()" style="background:var(--lift);border:1.5px solid var(--b2);color:var(--t1);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer">‹</button>
+          <span id="carNavLabel" style="font-size:13px;font-weight:700;color:var(--gold);min-width:50px;text-align:center">1 / 1</span>
+          <button onclick="CAROUSEL.nextSlide()" style="background:var(--lift);border:1.5px solid var(--b2);color:var(--t1);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer">›</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="canvas-wrap"><canvas id="carCv"></canvas></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="abtn prev-btn" style="flex:.7" onclick="CAROUSEL.prevSlide()">‹</button>
+      <button class="abtn prev-btn" onclick="CAROUSEL.saveSlide()">⬇ Save This</button>
+      <button class="abtn gold-btn" onclick="CAROUSEL.downloadAll()">📦 All Slides</button>
+      <button class="abtn prev-btn" style="flex:.7" onclick="CAROUSEL.nextSlide()">›</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
