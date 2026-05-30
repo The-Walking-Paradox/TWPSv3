@@ -1158,6 +1158,11 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         </div>
       </div>
 
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="qcTypoPanel"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1225,6 +1230,11 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         <button onclick="enterFullscreen(document.getElementById('dykCv'))" style="width:100%;padding:11px;border-radius:8px;background:rgba(232,201,106,.08);border:1.5px solid rgba(232,201,106,.25);color:rgba(232,201,106,.8);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;margin-top:6px">
           ⛶ Fullscreen Mode
         </button>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="dykTypoPanel"></div>
       </div>
 
     </div>
@@ -1308,7 +1318,13 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         </div>
       </div>
 
-    </div>
+    
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="slTypoPanel"></div>
+      </div>
+</div>
   </div>
 
   <div class="main-area">
@@ -1371,7 +1387,13 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         <input class="fi" id="cmpContext" placeholder="Did you know?" oninput="COMPARE.update()"/>
       </div>
 
-    </div>
+    
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="cmpTypoPanel"></div>
+      </div>
+</div>
   </div>
   <div class="main-area">
     <div class="canvas-frame"><canvas id="cmpCv"></canvas></div>
@@ -1431,7 +1453,13 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         </div>
       </div>
 
-    </div>
+    
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="pdxTypoPanel"></div>
+      </div>
+</div>
   </div>
   <div class="main-area">
     <div class="canvas-frame"><canvas id="pdxCv"></canvas></div>
@@ -1499,6 +1527,11 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
         </div>
       </div>
 
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="pollTypoPanel"></div>
+      </div>
+
     </div>
   </div>
   <div class="main-area">
@@ -1555,6 +1588,11 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
           <button class="chip-btn" style="font-size:10px;text-align:left" onclick="HOOK.setPreset('h3')">यो हेरेपछि Nepal को बारेमा सोच्ने तरिका बदलिन्छ</button>
           <button class="chip-btn" style="font-size:10px;text-align:left" onclick="HOOK.setPreset('h4')">Wait for it... 🤯</button>
         </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="hookTypoPanel"></div>
       </div>
 
     </div>
@@ -4721,7 +4759,7 @@ init();
 
 var QC = (function(){
   var state = {
-    fmt:'story', style:'dark',
+    fmt:'story', headFont:'DM Sans', headSize:72, headColor:'#f5f0e8', bodySize:38, bodyColor:'rgba(210,203,190,.85)', headFont:'DM Sans', headSize:58, headColor:'#f5f0e8', bodySize:36, bodyColor:'rgba(210,203,190,.85)', style:'dark',
     quote:'', author:'— Walking Paradox',
     font:'Playfair Display', size:52,
   };
@@ -5164,7 +5202,7 @@ const DYK = (() => {
     var t=document.getElementById('dykTitle');
     if(t)t.value=state.title;
     render(0);
-    WP.log('info','DYK initialized');
+    buildTypoPanel('dykTypoPanel',state,render);WP.log('info','DYK initialized');
   }
 
   function resize(){if(cv){fitCv();render(state.frame);}}
@@ -5185,7 +5223,7 @@ function setAlpha(rgba, a){
 }
 const SHLOKA = (() => {
   const state = {
-    fmt:'story', deity:'shiva',
+    fmt:'story', deity:'shiva', headFont:'DM Sans', headSize:58, headColor:'#f5f0e8', bodySize:34, bodyColor:'rgba(210,203,190,.85)',
     shloka:'Om Namah Shivaya', translit:'Om Namah Shivaya',
     meaning:'I bow to Lord Shiva — the source of all consciousness',
     source:'Shiva Purana',
@@ -5313,7 +5351,7 @@ const SHLOKA = (() => {
 const COMPARE = (() => {
 
   const state = {
-    fmt:'story', type:'vs_world',
+    fmt:'story', type:'vs_world', headFont:'DM Sans', headSize:58, headColor:'#f5f0e8', bodySize:34, bodyColor:'rgba(210,203,190,.85)',
     title:'Nepal vs The World',
     leftLabel:'Nepal', leftFact:'8 of the world\'s 10 highest mountains', leftStat:'8/10',
     rightLabel:'World', rightFact:'2 of the world\'s 10 highest mountains outside Nepal', rightStat:'2/10',
@@ -5390,7 +5428,7 @@ const COMPARE = (() => {
 
     // Title
     var tsz=Math.round(W*.044);
-    g.font='900 '+tsz+'px "DM Sans",sans-serif';
+    g.font='900 '+tsz+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
     g.fillStyle='#f5f0e8';g.textAlign='center';
     g.shadowColor='rgba(0,0,0,.8)';g.shadowBlur=W*.015;
     g.fillText(state.title,W/2,H*.21);
@@ -5470,7 +5508,7 @@ const COMPARE = (() => {
     }
     fitCv();setTimeout(render,50);
   }
-  function init(){cv=document.getElementById('cmpCv');if(!cv)return;g=cv.getContext('2d');fitCv();render();WP.log('info','COMPARE initialized');}
+  function init(){cv=document.getElementById('cmpCv');if(!cv)return;g=cv.getContext('2d');fitCv();buildTypoPanel('cmpTypoPanel',state,render);render();WP.log('info','COMPARE initialized');}
   function resize(){if(cv){fitCv();render();}}
   return{init,resize,render,update,setFmt,setType,download,state};
 })();
@@ -5478,7 +5516,7 @@ const COMPARE = (() => {
 const PARADOX = (() => {
 
   const state = {
-    fmt:'story', mood:'void',
+    fmt:'story', mood:'void', headFont:'DM Sans', headSize:58, headColor:'#f5f0e8', bodySize:34, bodyColor:'rgba(210,203,190,.85)',
     text:'The more you try to find yourself, the further you drift from who you are.',
     layer:'— The Walking Paradox',
   };
@@ -5661,7 +5699,7 @@ const PARADOX = (() => {
     }
     fitCv();setTimeout(render,50);
   }
-  function init(){cv=document.getElementById('pdxCv');if(!cv)return;g=cv.getContext('2d');fitCv();render();WP.log('info','PARADOX initialized');}
+  function init(){cv=document.getElementById('pdxCv');if(!cv)return;g=cv.getContext('2d');fitCv();buildTypoPanel('pdxTypoPanel',state,render);render();WP.log('info','PARADOX initialized');}
   function resize(){if(cv){fitCv();render();}}
   return{init,resize,render,update,setFmt,setMood,setPreset,download,state};
 })();
@@ -5707,7 +5745,7 @@ const POLL = (() => {
 
     // Question
     var qsz=Math.round(W*.054);
-    g.font='700 '+qsz+'px "DM Sans",sans-serif';
+    g.font='700 '+qsz+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
     g.fillStyle=pal.qColor;g.textAlign='center';
     g.shadowColor='rgba(0,0,0,.8)';g.shadowBlur=W*.018;
     var qlines=sharedWrap(g,state.question||'Your question?',W*.82,4);
@@ -5761,7 +5799,7 @@ const POLL = (() => {
     else{var b=atob(dataUrl.split(',')[1]),arr=new Uint8Array(b.length);for(var i=0;i<b.length;i++)arr[i]=b.charCodeAt(i);dlBlob(new Blob([arr],{type:'image/png'}),'walkingparadox-poll-'+new Date().toLocaleDateString('en-GB').replace(/\//g,'-')+'.png');setToast('🗳 Poll card saved!');}
     fitCv();setTimeout(render,50);
   }
-  function init(){cv=document.getElementById('pollCv');if(!cv)return;g=cv.getContext('2d');fitCv();render();WP.log('info','POLL initialized');}
+  function init(){cv=document.getElementById('pollCv');if(!cv)return;g=cv.getContext('2d');fitCv();buildTypoPanel('pollTypoPanel',state,render);render();WP.log('info','POLL initialized');}
   function resize(){if(cv){fitCv();render();}}
   return{init,resize,render,update,setFmt,setStyle,setPreset,download,state};
 })();
@@ -5826,7 +5864,7 @@ const HOOK = (() => {
 
     // Main hook text - massive
     var hsz=Math.round(W*.075);
-    g.font='900 '+hsz+'px "DM Sans",sans-serif';
+    g.font='900 '+Math.round((state.headSize||72)*(W/1080))+'px "'+(state.headFont||'DM Sans')+'",sans-serif';
     var lines=sharedWrap(g,state.text||'Your hook here',W*.84,5);
     var totalH=lines.length*hsz*1.25;
     var startY=H*.5-totalH/2+hsz*.5;
@@ -5873,7 +5911,7 @@ const HOOK = (() => {
     else{var b=atob(dataUrl.split(',')[1]),arr=new Uint8Array(b.length);for(var i=0;i<b.length;i++)arr[i]=b.charCodeAt(i);dlBlob(new Blob([arr],{type:'image/png'}),'walkingparadox-hook-'+new Date().toLocaleDateString('en-GB').replace(/\//g,'-')+'.png');setToast('🪝 Hook card saved!');}
     fitCv();setTimeout(render,50);
   }
-  function init(){cv=document.getElementById('hookCv');if(!cv)return;g=cv.getContext('2d');fitCv();render();WP.log('info','HOOK initialized');}
+  function init(){cv=document.getElementById('hookCv');if(!cv)return;g=cv.getContext('2d');fitCv();buildTypoPanel('hookTypoPanel',state,render);render();WP.log('info','HOOK initialized');}
   function resize(){if(cv){fitCv();render();}}
   return{init,resize,render,update,setFmt,setStyle,setPreset,download,state};
 })();
@@ -6472,9 +6510,12 @@ var CAROUSEL = (function(){
     fmt: 'story',
     style: 'dark',
     current: 0,
-    slides: [
-      { headline: '', body: '', label: '' }
-    ],
+    slides: [{ headline: '', body: '', label: '' }],
+    headFont: 'DM Sans',
+    headSize: 65,
+    headColor: '#f5f0e8',
+    bodySize: 38,
+    bodyColor: 'rgba(210,203,190,.85)',
   };
 
   var STYLES = {
@@ -6603,12 +6644,11 @@ var CAROUSEL = (function(){
 
     // Headline
     var headTxt = slide.headline || 'Slide '+(idx+1);
-    var hSz = Math.round(W*.065);
-    // Auto-shrink if long
-    if(headTxt.length > 40) hSz = Math.round(W*.052);
-    if(headTxt.length > 70) hSz = Math.round(W*.042);
-    g2.font = '800 '+hSz+'px "DM Sans",sans-serif';
-    g2.fillStyle = pal.headline;
+    var hSz = Math.round((state.headSize||65)*(W/1080));
+    if(headTxt.length > 40) hSz = Math.round(hSz*.85);
+    if(headTxt.length > 70) hSz = Math.round(hSz*.75);
+    g2.font = '800 '+hSz+'px "'+state.headFont+'",sans-serif';
+    g2.fillStyle = state.headColor||pal.headline;
     g2.textAlign = 'left';
     g2.shadowColor = 'rgba(0,0,0,.7)';
     g2.shadowBlur = W*.02;
@@ -6630,9 +6670,9 @@ var CAROUSEL = (function(){
 
     // Body text
     if(slide.body && slide.body.trim()){
-      var bSz = Math.round(W*.038);
-      g2.font = '400 '+bSz+'px "DM Sans",sans-serif';
-      g2.fillStyle = pal.body;
+      var bSz = Math.round((state.bodySize||38)*(W/1080));
+      g2.font = '400 '+bSz+'px "'+state.headFont+'",sans-serif';
+      g2.fillStyle = state.bodyColor||pal.body;
       g2.textAlign = 'left';
       var bY = ruleY + bSz*1.6;
       var bLines = sharedWrap(g2, slide.body, hMaxW, 12);
@@ -6828,6 +6868,7 @@ var CAROUSEL = (function(){
     fitCv();
     loadSlideIntoEditor();
     buildSlideList();
+    buildTypoPanel('carTypoPanel', state, render);
     render();
     WP.log('info','CAROUSEL initialized');
   }
@@ -6845,6 +6886,133 @@ var CAROUSEL = (function(){
   };
 
 })();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  SHARED TYPOGRAPHY PANEL
+//  Injects font/size/color controls into any tool's sidebar
+//  Usage: buildTypoPanel(containerId, state, renderFn)
+//  state must have: headFont, headSize, headColor, bodySize, bodyColor
+// ═══════════════════════════════════════════════════════════════
+function buildTypoPanel(containerId, state, renderFn){
+  var el = document.getElementById(containerId);
+  if(!el) return;
+  el.innerHTML = '';
+
+  var FONTS = [
+    {val:'Playfair Display', label:'Editorial', css:"font-family:'Playfair Display',serif"},
+    {val:'DM Sans',          label:'Modern',    css:"font-family:'DM Sans',sans-serif"},
+    {val:'Cinzel',           label:'Cinzel',    css:"font-family:'Cinzel',serif"},
+  ];
+
+  var COLORS = [
+    {val:'#f5f0e8',              label:'Warm White'},
+    {val:'#ffffff',              label:'Pure White'},
+    {val:'#e8c96a',              label:'Gold'},
+    {val:'#c9334a',              label:'Crimson'},
+    {val:'rgba(255,255,255,.7)', label:'Soft'},
+    {val:'#a0d4ff',              label:'Sky'},
+  ];
+
+  function row(label){ var d=document.createElement('div');d.className='sec-lbl';d.style.cssText='margin-top:10px;margin-bottom:6px';d.textContent=label;return d; }
+
+  // ── HEADLINE SECTION ──
+  el.appendChild(row('Headline Font'));
+  var fp = document.createElement('div');
+  fp.className = 'font-pick';
+  FONTS.forEach(function(f){
+    var btn = document.createElement('button');
+    btn.className = 'font-chip' + (state.headFont===f.val?' on':'');
+    btn.setAttribute('style', f.css);
+    btn.textContent = f.label;
+    btn.onclick = function(){
+      state.headFont = f.val;
+      fp.querySelectorAll('.font-chip').forEach(function(b){b.classList.remove('on');});
+      btn.classList.add('on');
+      renderFn();
+    };
+    fp.appendChild(btn);
+  });
+  el.appendChild(fp);
+
+  // Head size
+  var hSzLbl = document.createElement('div');
+  hSzLbl.className = 'txt-ctrl-title';
+  hSzLbl.style.marginTop='8px';
+  hSzLbl.innerHTML = 'Headline Size — <span id="'+containerId+'_hszVal">'+(state.headSize||60)+'</span>px';
+  el.appendChild(hSzLbl);
+  var hSlider = document.createElement('input');
+  hSlider.type='range'; hSlider.min=24; hSlider.max=110; hSlider.value=state.headSize||60;
+  hSlider.className='slider'; hSlider.style.width='100%';
+  hSlider.oninput = function(){
+    state.headSize = +this.value;
+    var v=document.getElementById(containerId+'_hszVal');
+    if(v) v.textContent=this.value;
+    renderFn();
+  };
+  el.appendChild(hSlider);
+
+  // Head color
+  el.appendChild(row('Headline Color'));
+  var hcp = document.createElement('div');
+  hcp.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:6px';
+  COLORS.forEach(function(c){
+    var btn = document.createElement('button');
+    var isOn = state.headColor===c.val;
+    btn.style.cssText='padding:7px 4px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid '+(isOn?'var(--gd)':'var(--b2)')+';background:var(--card);color:'+c.val;
+    btn.textContent = c.label;
+    btn.onclick = function(){
+      state.headColor = c.val;
+      hcp.querySelectorAll('button').forEach(function(b){b.style.borderColor='var(--b2)';});
+      btn.style.borderColor='var(--gd)';
+      renderFn();
+    };
+    hcp.appendChild(btn);
+  });
+  el.appendChild(hcp);
+
+  // ── BODY SECTION ──
+  el.appendChild(row('Body Size — <span id="'+containerId+'_bszVal">'+(state.bodySize||34)+'</span>px'));
+  // Fix: can't put HTML in row(), set innerHTML after
+  el.lastChild.innerHTML = 'Body Size — <span id="'+containerId+'_bszVal">'+(state.bodySize||34)+'</span>px';
+  var bSlider = document.createElement('input');
+  bSlider.type='range'; bSlider.min=14; bSlider.max=56; bSlider.value=state.bodySize||34;
+  bSlider.className='slider'; bSlider.style.width='100%';
+  bSlider.oninput = function(){
+    state.bodySize = +this.value;
+    var v=document.getElementById(containerId+'_bszVal');
+    if(v) v.textContent=this.value;
+    renderFn();
+  };
+  el.appendChild(bSlider);
+
+  // Body color
+  el.appendChild(row('Body Color'));
+  var bcp = document.createElement('div');
+  bcp.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:6px';
+  var BODY_COLORS = [
+    {val:'rgba(210,203,190,.85)', label:'Warm'},
+    {val:'rgba(255,255,255,.85)', label:'White'},
+    {val:'rgba(232,201,106,.8)',  label:'Gold'},
+    {val:'rgba(200,220,255,.85)', label:'Cool'},
+    {val:'rgba(180,240,200,.8)',  label:'Mint'},
+    {val:'rgba(255,180,180,.8)',  label:'Rose'},
+  ];
+  BODY_COLORS.forEach(function(c){
+    var btn = document.createElement('button');
+    var isOn = state.bodyColor===c.val;
+    btn.style.cssText='padding:7px 4px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid '+(isOn?'var(--gd)':'var(--b2)')+';background:var(--card);color:'+c.val;
+    btn.textContent = c.label;
+    btn.onclick = function(){
+      state.bodyColor = c.val;
+      bcp.querySelectorAll('button').forEach(function(b){b.style.borderColor='var(--b2)';});
+      btn.style.borderColor='var(--gd)';
+      renderFn();
+    };
+    bcp.appendChild(btn);
+  });
+  el.appendChild(bcp);
+}
 
 // ── EXPOSE TO WINDOW ──
 if(typeof cancelSrOverlay !== 'undefined') window.cancelSrOverlay = cancelSrOverlay;
@@ -6995,6 +7163,11 @@ if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
           <span id="carNavLabel" style="font-size:13px;font-weight:700;color:var(--gold);min-width:50px;text-align:center">1 / 1</span>
           <button onclick="CAROUSEL.nextSlide()" style="background:var(--lift);border:1.5px solid var(--b2);color:var(--t1);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer">›</button>
         </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Typography</div>
+        <div id="carTypoPanel"></div>
       </div>
 
     </div>
