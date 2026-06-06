@@ -557,6 +557,12 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
   <div class="tool-tab" id="tn-carousel" onclick="switchTool('carousel')">
     <div class="tt-icon">🃏</div><div class="tt-name">Swipe</div>
   </div>
+  <div class="tool-tab" id="tn-react" onclick="switchTool('react')">
+    <div class="tt-icon">💬</div><div class="tt-name">React</div>
+  </div>
+  <div class="tool-tab" id="tn-watermark" onclick="switchTool('watermark')">
+    <div class="tt-icon">💧</div><div class="tt-name">Mark</div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -1965,11 +1971,21 @@ canvas{border-radius:8px;display:block;max-width:100%;box-shadow:0 16px 60px rgb
 
 <script>// ── EARLY ERROR HANDLER — fires before anything else ──
 window.onerror = function(msg, src, line, col, err) {
-  var m = (msg||'Script error') + (line ? ' (line '+line+')' : '');
-  document.body.style.cssText = 'background:#0c0d15;color:#e8c96a;padding:24px;font-family:monospace;font-size:14px;';
-  document.body.innerHTML = '<h2 style="margin-bottom:12px">Studio failed to start</h2>'
-    + '<p style="color:#a09b8e;margin-bottom:8px">'+m+'</p>'
-    + '<p style="color:#55534e;font-size:11px;margin-top:16px">Open directly in Safari (not in-app browser). Then hard refresh: hold reload button.</p>';
+  // 'Script error' with no details = cross-origin or suppressed error
+  // Show the full error if available
+  var m = (err && err.message) ? err.message : (msg||'Script error');
+  var l = line || (err && err.lineNumber) || '?';
+  var stack = (err && err.stack) ? err.stack.split('\n').slice(0,3).join(' | ') : '';
+  console.error('[WP onerror]', m, 'line:', l, stack);
+  // Only show fatal UI if it's a real startup crash (not a recoverable error)
+  if(msg && msg.indexOf('Script error') === -1){
+    document.body.style.cssText = 'background:#0c0d15;color:#e8c96a;padding:24px;font-family:monospace;font-size:13px;line-height:1.8;';
+    document.body.innerHTML = '<h2 style="margin-bottom:12px">Studio error</h2>'
+      + '<p style="color:#c9334a;margin-bottom:8px"><strong>'+m+'</strong></p>'
+      + '<p style="color:#a09b8e;font-size:11px">Line: '+l+'</p>'
+      + (stack ? '<p style="color:#55534e;font-size:10px;margin-top:8px">'+stack+'</p>' : '')
+      + '<p style="color:#55534e;font-size:11px;margin-top:16px">Hard refresh: hold reload button in Safari.</p>';
+  }
   return false;
 };
 
@@ -2184,10 +2200,25 @@ function sharedDrawBottom(g,W,H,a=1){
   g.font='500 '+(isz*.9)+'px "Cinzel",serif';g.fillText('Walking Paradox',W*.96,H-.022*H);
   g.restore();
 }
-function sharedWrap(g,txt,maxW,maxL=99){
-  const words=(txt||'').split(' ');const lines=[];let cur='';
-  for(const w of words){const t=cur?cur+' '+w:w;if(g.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}
-  if(cur)lines.push(cur);return lines.slice(0,maxL);
+function sharedWrap(g,txt,maxW,maxL){
+  if(maxL===undefined)maxL=99;
+  var result=[];
+  // Split on hard line breaks first, then word-wrap each paragraph
+  var paragraphs=(txt||'').split('\n');
+  for(var p=0;p<paragraphs.length;p++){
+    var para=paragraphs[p];
+    if(!para.trim()){result.push('');continue;} // preserve blank lines
+    var words=para.split(' ');
+    var cur='';
+    for(var w=0;w<words.length;w++){
+      var word=words[w];
+      var test=cur?cur+' '+word:word;
+      if(g.measureText(test).width>maxW&&cur){result.push(cur);cur=word;}
+      else cur=test;
+    }
+    if(cur)result.push(cur);
+  }
+  return result.slice(0,maxL);
 }
 function sharedRR(g,x,y,w,h,r){
   g.beginPath();g.moveTo(x+r,y);g.lineTo(x+w-r,y);g.quadraticCurveTo(x+w,y,x+w,y+r);
@@ -2705,6 +2736,7 @@ function buildExpPanel(panelId,getMethod,setMethod,render){
   head.textContent='📤 Export Method';
   el.appendChild(head);
 
+  const EXP_OPTS=getExpOpts();
   EXP_OPTS.forEach(opt=>{
     const div=document.createElement('div');
     div.className='exp-opt'+(getMethod()===opt.id?' sel':'');
@@ -4167,11 +4199,11 @@ function qInit(){qFitCv();buildBgRow('qBgRow','himalaya',id=>{qS.bg=id;qRender(0
 // TOOL SWITCHER
 // ═══════════════════════════════════════════════════
 let activeTool='news';
-const TOOL_BARS={news:['nBarMob','nBarDesk'],top10:['vBarMob','vBarDesk'],quiz:['qBarMob','qBarDesk'],intro:['iBarMob','iBarDesk'],quote:['quoteBars','quoteBarsDesk'],dyk:['dykBarMob','dykBarDesk'],shloka:['shlokaBarMob','shlokaBarDesk'],compare:['compareBarMob','compareBarDesk'],paradox:['paradoxBarMob','paradoxBarDesk'],poll:['pollBarMob','pollBarDesk'],hook:['hookBarMob','hookBarDesk'],caption:['captionBarMob','captionBarDesk']};
-let _iInited=false,_vInited=false,_qInited=false,_qcInited=false,_dykInited=false,_slInited=false,_cmpInited=false,_pdxInited=false,_pollInited=false,_hookInited=false,_capInited=false,_carInited=false;
+const TOOL_BARS={news:['nBarMob','nBarDesk'],top10:['vBarMob','vBarDesk'],quiz:['qBarMob','qBarDesk'],intro:['iBarMob','iBarDesk'],quote:['quoteBars','quoteBarsDesk'],dyk:['dykBarMob','dykBarDesk'],shloka:['shlokaBarMob','shlokaBarDesk'],compare:['compareBarMob','compareBarDesk'],paradox:['paradoxBarMob','paradoxBarDesk'],poll:['pollBarMob','pollBarDesk'],hook:['hookBarMob','hookBarDesk'],caption:['captionBarMob','captionBarDesk'],carousel:['carBarMob'],react:['reactBarMob'],watermark:['wmBarMob']};
+let _iInited=false,_vInited=false,_qInited=false,_qcInited=false,_dykInited=false,_slInited=false,_cmpInited=false,_pdxInited=false,_pollInited=false,_hookInited=false,_capInited=false,_carInited=false,_reactInited=false,_wmInited=false;
 function switchTool(tool){
   activeTool=tool;
-  ['news','top10','quiz','intro','quote','dyk','shloka','compare','paradox','poll','hook','caption','carousel'].forEach(t=>{
+  ['news','top10','quiz','intro','quote','dyk','shloka','compare','paradox','poll','hook','caption','carousel','react','watermark'].forEach(t=>{
     document.getElementById('ts-'+t).classList.toggle('on',t===tool);
     document.getElementById('tn-'+t).classList.toggle('on',t===tool);
   });
@@ -4188,6 +4220,8 @@ function switchTool(tool){
   if(tool==='hook'   &&!_hookInited){_hookInited=true; setTimeout(function(){HOOK.init();},60);}
   if(tool==='caption'  &&!_capInited)   {_capInited=true;   setTimeout(function(){CAPTION.init();},60);}
   if(tool==='carousel' &&!_carInited)   {_carInited=true;   setTimeout(function(){CAROUSEL.init();},60);}
+  if(tool==='react'      &&!_reactInited){_reactInited=true; setTimeout(function(){REACT.init();},60);}
+  if(tool==='watermark' &&!_wmInited)   {_wmInited=true;    setTimeout(function(){WATERMARK.init();},60);}
   // Action bars — hide all, show active
   Object.values(TOOL_BARS).forEach(bars=>bars.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';}));
   checkLayout();
@@ -4759,19 +4793,19 @@ function exitFullscreen(){
 }
 
 async function init(){
-  await document.fonts.ready;
-  nInit();
-  // video tools lazy-init on first tab open so canvas has proper dimensions
-  switchTool('news');
-  window.addEventListener('resize',()=>{
-    nFitCv();nRender();
-    vFitCv();vRender(vS.frame);
-    qFitCv();qRender(qS.frame);
-    checkLayout();
+  try{ await document.fonts.ready; }catch(e){}
+  try{ nInit(); }catch(e){ console.error('[WP] nInit failed:',e); }
+  try{ switchTool('news'); }catch(e){ console.error('[WP] switchTool failed:',e); }
+  window.addEventListener('resize', function(){
+    try{ nFitCv();nRender(); }catch(e){}
+    try{ vFitCv();vRender(vS.frame); }catch(e){}
+    try{ qFitCv();qRender(qS.frame); }catch(e){}
+    try{ checkLayout(); }catch(e){}
   });
 }
-init();
-
+init().catch(function(e){
+  console.error('[WP] Startup error:', e);
+});
 
 var QC = (function(){
   var state = {
@@ -6932,7 +6966,7 @@ function buildTypoPanel(containerId, state, renderFn){
   function row(label){ var d=document.createElement('div');d.className='sec-lbl';d.style.cssText='margin-top:10px;margin-bottom:6px';d.textContent=label;return d; }
 
   // ── HEADLINE SECTION ──
-  el.appendChild(row('Headline Font'));
+  el.appendChild(row('📝 Headline / Main Text Font'));
   var fp = document.createElement('div');
   fp.className = 'font-pick';
   FONTS.forEach(function(f){
@@ -7007,11 +7041,13 @@ function buildTypoPanel(containerId, state, renderFn){
   bcp.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:6px';
   var BODY_COLORS = [
     {val:'rgba(210,203,190,.85)', label:'Warm'},
-    {val:'rgba(255,255,255,.85)', label:'White'},
-    {val:'rgba(232,201,106,.8)',  label:'Gold'},
-    {val:'rgba(200,220,255,.85)', label:'Cool'},
-    {val:'rgba(180,240,200,.8)',  label:'Mint'},
-    {val:'rgba(255,180,180,.8)',  label:'Rose'},
+    {val:'rgba(255,255,255,.9)',  label:'White'},
+    {val:'rgba(232,201,106,.9)',  label:'Gold'},
+    {val:'rgba(100,220,140,.9)',  label:'✅ Green'},
+    {val:'rgba(255,90,90,.95)',   label:'🚫 Red'},
+    {val:'rgba(255,160,60,.9)',   label:'⚠️ Orange'},
+    {val:'rgba(140,200,255,.9)',  label:'Blue'},
+    {val:'rgba(220,160,255,.9)',  label:'Purple'},
   ];
   BODY_COLORS.forEach(function(c){
     var btn = document.createElement('button');
@@ -7028,6 +7064,555 @@ function buildTypoPanel(containerId, state, renderFn){
   });
   el.appendChild(bcp);
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+//  REACT — REACTION / DUET CARD MAKER
+//  Long-form analysis card designed for TikTok/Reels duet content
+//  Full 9:16 vertical card — your side of the duet
+// ═══════════════════════════════════════════════════════════════
+var REACT = (function(){
+
+  var state = {
+    fmt:'story', style:'dark',
+    topic:'', body:'', question:'',
+    topicSize: 36,      // topic/header tag size
+    textSize: 38,       // body text size
+    textColor:'rgba(210,203,190,.9)',
+    qColor:'#e8c96a',
+  };
+
+  var STYLES = {
+    dark:{
+      bg:function(g,W,H){
+        g.fillStyle='#08080f';g.fillRect(0,0,W,H);
+        var rg=g.createRadialGradient(W*.5,H*.5,0,W*.5,H*.5,W*.7);
+        rg.addColorStop(0,'rgba(232,201,106,.04)');rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg;g.fillRect(0,0,W,H);
+      },
+      accent:'#e8c96a',rule:'rgba(232,201,106,.3)',
+      tag:'rgba(232,201,106,.9)',tagBg:'rgba(232,201,106,.1)',
+    },
+    crimson:{
+      bg:function(g,W,H){
+        g.fillStyle='#0a0204';g.fillRect(0,0,W,H);
+        var rg=g.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.7);
+        rg.addColorStop(0,'rgba(201,51,74,.12)');rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg;g.fillRect(0,0,W,H);
+      },
+      accent:'#c9334a',rule:'rgba(201,51,74,.4)',
+      tag:'rgba(255,120,140,.9)',tagBg:'rgba(201,51,74,.12)',
+    },
+    gold:{
+      bg:function(g,W,H){
+        g.fillStyle='#0a0800';g.fillRect(0,0,W,H);
+        var rg=g.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.65);
+        rg.addColorStop(0,'rgba(232,201,106,.1)');rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg;g.fillRect(0,0,W,H);
+      },
+      accent:'#e8c96a',rule:'rgba(232,201,106,.4)',
+      tag:'rgba(232,201,106,.95)',tagBg:'rgba(232,201,106,.12)',
+    },
+    blue:{
+      bg:function(g,W,H){
+        g.fillStyle='#020810';g.fillRect(0,0,W,H);
+        var rg=g.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.7);
+        rg.addColorStop(0,'rgba(74,127,192,.15)');rg.addColorStop(1,'rgba(0,0,0,0)');
+        g.fillStyle=rg;g.fillRect(0,0,W,H);
+      },
+      accent:'#4a7fc0',rule:'rgba(74,127,192,.4)',
+      tag:'rgba(140,190,255,.9)',tagBg:'rgba(74,127,192,.12)',
+    },
+  };
+
+  var cv,g2,W,H;
+
+  function getDims(){return state.fmt==='story'?{W:1080,H:1920}:{W:1080,H:1080};}
+
+  function fitCv(){
+    if(!cv)return;
+    var d=getDims();W=d.W;H=d.H;
+    var mxW=Math.max(cv.parentElement?cv.parentElement.clientWidth:280,280);
+    var mxH=Math.max(window.innerHeight*.48,300);
+    var pw,ph;
+    if(W/H>=1){pw=Math.min(mxW,520);ph=pw*(H/W);if(ph>mxH){ph=mxH;pw=ph*(W/H);}}
+    else{ph=Math.min(mxH,520);pw=ph*(W/H);if(pw>mxW){pw=mxW;ph=pw*(H/W);}}
+    cv.style.width=pw+'px';cv.style.height=ph+'px';cv.width=W;cv.height=H;
+  }
+
+  function render(){if(!cv){init();}if(!cv||!g2)return;WP.safeRender(_draw,cv,'REACT');}
+
+  function _draw(){
+    fitCv();
+    var pal=STYLES[state.style]||STYLES.dark;
+    W=cv.width;H=cv.height;
+    var pp=pip(W);
+    var isStory=state.fmt==='story';
+
+    // Background
+    pal.bg(g2,W,H);
+
+    // Nepal pip
+    g2.fillStyle='#c9334a';g2.fillRect(0,0,pp,H*.5);
+    g2.fillStyle='#4a7fc0';g2.fillRect(0,H*.5,pp,H*.5);
+
+    // Top gradient
+    var tg=g2.createLinearGradient(0,0,0,H*.15);
+    tg.addColorStop(0,'rgba(0,0,0,.8)');tg.addColorStop(1,'rgba(0,0,0,0)');
+    g2.fillStyle=tg;g2.fillRect(0,0,W,H*.15);
+
+    // Brand top
+    var bsz=Math.round(W*.022);
+    g2.font='700 '+bsz+'px "Cinzel",serif';
+    if('letterSpacing' in g2)g2.letterSpacing='3px';
+    g2.fillStyle='rgba(232,201,106,.85)';g2.textAlign='center';
+    g2.shadowColor='rgba(0,0,0,.9)';g2.shadowBlur=W*.015;
+    g2.fillText('THE WALKING PARADOX',W/2,H*.055+bsz);
+    g2.shadowBlur=0;
+    if('letterSpacing' in g2)g2.letterSpacing='0px';
+
+    var ruleY=H*.055+bsz*1.6;
+    var ruleGr=g2.createLinearGradient(W*.2,0,W*.8,0);
+    ruleGr.addColorStop(0,'rgba(0,0,0,0)');ruleGr.addColorStop(.5,pal.rule);ruleGr.addColorStop(1,'rgba(0,0,0,0)');
+    g2.fillStyle=ruleGr;g2.fillRect(W*.2,ruleY,W*.6,Math.max(1,W*.002));
+
+    var contentX=pp+W*.08;
+    var contentW=W*.84-pp;
+    var curY=ruleY+H*.04;
+
+    // Topic tag
+    if(state.topic&&state.topic.trim()){
+      var tagSz=Math.round((state.topicSize||36)*(W/1080));
+      var tagTxt='⚡ '+state.topic;
+      g2.font='700 '+tagSz+'px "DM Sans",sans-serif';
+      var tagW2=Math.min(g2.measureText(tagTxt).width+W*.04, contentW); // cap at content width
+      var tagH2=tagSz*1.9;
+      g2.fillStyle=pal.tagBg;
+      var rr=tagH2/2;
+      g2.beginPath();
+      g2.moveTo(contentX+rr,curY);g2.lineTo(contentX+tagW2-rr,curY);
+      g2.arc(contentX+tagW2-rr,curY+rr,rr,-Math.PI/2,Math.PI/2);
+      g2.lineTo(contentX+rr,curY+tagH2);
+      g2.arc(contentX+rr,curY+rr,rr,Math.PI/2,-Math.PI/2);
+      g2.closePath();g2.fill();
+      g2.strokeStyle=pal.rule;g2.lineWidth=1;g2.stroke();
+      g2.fillStyle=pal.tag;g2.textAlign='left';
+      // Clip long topic text to one line
+      var maxTagTxtW=tagW2-W*.04;
+      var displayTag=tagTxt;
+      while(g2.measureText(displayTag).width>maxTagTxtW&&displayTag.length>5){
+        displayTag=displayTag.slice(0,-1);
+      }
+      if(displayTag!==tagTxt) displayTag=displayTag.trim()+'...';
+      g2.fillText(displayTag,contentX+W*.02,curY+tagSz*1.35);
+      curY=curY+tagH2+H*.025;
+    }
+
+    // Body text — uses state.textSize
+    var bodyTxt=state.body && state.body.trim() ? state.body : '';
+    var bSz=Math.round((state.textSize||38)*(W/1080));
+    g2.font='400 '+bSz+'px "DM Sans",sans-serif';
+    var lines=sharedWrap(g2,bodyTxt,contentW,60);
+
+    // Available space — reserve room for question box if present
+    var hasQ=state.question&&state.question.trim();
+    var qReserve=hasQ?H*.18:0;  // reserve more space so question sits comfortably
+    var availH=H*.88-curY-qReserve;
+
+    // Safety shrink only if massively over
+    var totalTextH=lines.length*bSz*1.65;
+    if(totalTextH>availH*1.3){
+      for(var a=0;a<6;a++){
+        bSz=Math.round(bSz*.88);
+        g2.font='400 '+bSz+'px "DM Sans",sans-serif';
+        lines=sharedWrap(g2,bodyTxt,contentW,60);
+        if(lines.length*bSz*1.65<=availH*1.1||bSz<=14)break;
+      }
+    }
+
+    var lineH=bSz*1.65;
+    g2.textAlign='left';
+    g2.shadowColor='rgba(0,0,0,.5)';g2.shadowBlur=W*.008;
+    lines.forEach(function(line,i){
+      if(!line.trim())return;
+      // Smart color coding
+      var fc=line.trim().charAt(0);
+      if(fc==='✅'||fc==='👍'||line.trim().indexOf('सकारात')===0){
+        g2.fillStyle='rgba(100,220,140,.9)';
+      } else if(fc==='❌'||fc==='⚠'||line.trim().indexOf('चुनौती')===0||line.trim().indexOf('चुनौत')===0){
+        g2.fillStyle='rgba(255,160,100,.9)';
+      } else {
+        g2.fillStyle=state.textColor||'rgba(210,203,190,.9)';
+      }
+      g2.fillText(line,contentX,curY+i*lineH+bSz);
+    });
+    g2.shadowBlur=0;
+
+    
+    // ── ENGAGEMENT QUESTION ──
+    if(state.question && state.question.trim()){
+      // Measure lines first so we can position from the bottom up
+      var qSz = Math.round((state.textSize||38)*(W/1080)*.82);
+      g2.font = '600 '+qSz+'px "DM Sans",sans-serif';
+      var qLines = sharedWrap(g2, state.question, contentW, 3);
+      var qLineH = qSz * 1.55;
+      var qTotalH = qLines.length * qLineH + qSz;
+      // Position so question ends at H*0.905 — always above bottom strip
+      var qY = H*0.905 - qTotalH;
+      // Dark fade behind question
+      var qBg = g2.createLinearGradient(0, qY-H*.04, 0, H*.915);
+      qBg.addColorStop(0,'rgba(0,0,0,0)');
+      qBg.addColorStop(.5,'rgba(4,4,10,.97)');
+      g2.fillStyle = qBg;
+      g2.fillRect(0, qY-H*.04, W, H*.915-(qY-H*.04));
+      // Accent line — use white so it's visible above any text color
+      g2.fillStyle = 'rgba(255,255,255,0.6)';
+      g2.fillRect(contentX, qY, W*.18, Math.max(2,W*.003));
+      // Question text
+      g2.fillStyle = state.qColor || pal.tag;
+      g2.textAlign = 'left';
+      g2.shadowColor = 'rgba(0,0,0,.85)';
+      g2.shadowBlur = W*.012;
+      qLines.forEach(function(ql, qi){
+        g2.fillText(ql, contentX, qY + qSz*1.1 + qi*qLineH);
+      });
+      g2.shadowBlur = 0;
+    }
+
+    // Bottom strip
+    g2.fillStyle='rgba(4,4,10,.92)';g2.fillRect(0,H*.92,W,H*.08);
+    g2.strokeStyle=pal.rule;g2.lineWidth=1;
+    g2.beginPath();g2.moveTo(0,H*.92);g2.lineTo(W,H*.92);g2.stroke();
+
+    // REACTION label bottom left
+    var lblSz=Math.round(W*.02);
+    g2.font='700 '+lblSz+'px "DM Sans",sans-serif';
+    if('letterSpacing' in g2)g2.letterSpacing='2px';
+    g2.fillStyle=pal.tag;g2.textAlign='left';
+    g2.fillText('REACTION',pp+W*.06,H*.92+lblSz*1.7);
+    if('letterSpacing' in g2)g2.letterSpacing='0px';
+
+    sharedDrawWatermark(g2,W,H);
+  }
+
+  function update(){
+    var t=document.getElementById('reactTopic');
+    var b=document.getElementById('reactBody');
+    var q=document.getElementById('reactQuestion');
+    if(t)state.topic=t.value;
+    if(b)state.body=b.value;
+    if(q)state.question=q.value;
+    render();
+  }
+
+  function setStyle(s){
+    state.style=s;
+    ['Dark','Crimson','Gold','Blue'].forEach(function(k){
+      var el=document.getElementById('reactStyle'+k);
+      if(el)el.classList.toggle('on',k.toLowerCase()===s);
+    });
+    render();
+  }
+
+  function setFmt(f){
+    state.fmt=f;
+    document.getElementById('reactFmtStory').classList.toggle('on',f==='story');
+    document.getElementById('reactFmtSquare').classList.toggle('on',f==='square');
+    fitCv();render();
+  }
+
+  function setSize(s){
+    state.textSize=s;
+    // Update active button
+    var panel=document.getElementById('reactSizeBtns');
+    if(panel){panel.querySelectorAll('button').forEach(function(b){
+      b.style.borderColor=b.dataset.sz==s?'var(--gd)':'var(--b2)';
+    });}
+    render();
+  }
+
+  function setTextColor(c){
+    state.textColor=c;
+    render();
+  }
+
+  function setQColor(c){
+    state.qColor=c;
+    render();
+  }
+
+  function download(){
+    if(!cv){init();}if(!cv)return;
+    var d=getDims();cv.width=d.W;cv.height=d.H;W=d.W;H=d.H;
+    _draw();
+    var dataUrl=cv.toDataURL('image/png');
+    if(IS_IOS){showSaveOverlay(dataUrl);}
+    else{
+      var b=atob(dataUrl.split(',')[1]);
+      var arr=new Uint8Array(b.length);
+      for(var i=0;i<b.length;i++)arr[i]=b.charCodeAt(i);
+      dlBlob(new Blob([arr],{type:'image/png'}),'walkingparadox-reaction-'+Date.now()+'.png');
+      setToast('Reaction card saved!');
+    }
+    fitCv();setTimeout(render,50);
+  }
+
+  function init(){
+    cv=document.getElementById('reactCv');
+    if(!cv){WP.log('error','REACT: canvas not found');return;}
+    g2=cv.getContext('2d');
+    var t=document.getElementById('reactTopic');
+    var b=document.getElementById('reactBody');
+    var q=document.getElementById('reactQuestion');
+    if(t)t.value=state.topic;
+    if(b)b.value=state.body;
+    if(q)q.value=state.question;
+    fitCv();render();
+    WP.log('info','REACT initialized');
+  }
+
+  function resize(){if(cv){fitCv();render();}}
+
+  function setTopicSize(s){
+    state.topicSize=s;
+    var panel=document.getElementById('reactTopicSizeBtns');
+    if(panel){panel.querySelectorAll('button').forEach(function(b){
+      b.style.borderColor=b.dataset.sz==s?'var(--gd)':'var(--b2)';
+    });}
+    render();
+  }
+
+    return{init,resize,render,update,setStyle,setFmt,setTopicSize,setSize,setTextColor,setQColor,download,state};
+
+})();
+
+
+
+// ═══════════════════════════════════════════════════════════════
+//  WATERMARK — TRANSPARENT PNG OVERLAY GENERATOR
+//  Generates a transparent PNG to use as overlay in CapCut
+// ═══════════════════════════════════════════════════════════════
+var WATERMARK = (function(){
+
+  var state = {
+    fmt: 'story',
+    pos: 'br',
+    style: 'gold',
+    opacity: 0.7,
+    size: 'm',
+  };
+
+  var DIMS = {
+    story:  {W:1080, H:1920},
+    square: {W:1080, H:1080},
+    land:   {W:1920, H:1080},
+    fb:     {W:1200, H:630},
+  };
+
+  var SIZE_SCALE = {s:0.6, m:1.0, l:1.5, xl:2.2};
+
+  var cv, g2, W, H;
+
+  function getDims(){ return DIMS[state.fmt] || DIMS.story; }
+
+  function fitCv(){
+    if(!cv) return;
+    var d=getDims(); W=d.W; H=d.H;
+    var mxW=Math.max(cv.parentElement?cv.parentElement.clientWidth:280,280);
+    var mxH=Math.max(window.innerHeight*.44,200);
+    var pw,ph;
+    if(W/H>=1){pw=Math.min(mxW,520);ph=pw*(H/W);if(ph>mxH){ph=mxH;pw=ph*(W/H);}}
+    else{ph=Math.min(mxH,420);pw=ph*(W/H);if(pw>mxW){pw=mxW;ph=pw*(H/W);}}
+    cv.style.width=pw+'px'; cv.style.height=ph+'px'; cv.width=W; cv.height=H;
+  }
+
+  function render(){
+    if(!cv){init();} if(!cv||!g2) return;
+    WP.safeRender(_draw, cv, 'WATERMARK');
+  }
+
+  function _draw(){
+    fitCv(); W=cv.width; H=cv.height;
+    var scale = SIZE_SCALE[state.size]||1.0;
+
+    // Transparent background — but show subtle grid so user can see canvas
+    g2.clearRect(0,0,W,H);
+    // Checkerboard to show transparency
+    var sz = Math.round(W*.025);
+    for(var row=0; row<Math.ceil(H/sz); row++){
+      for(var col=0; col<Math.ceil(W/sz); col++){
+        g2.fillStyle = (row+col)%2===0 ? 'rgba(30,31,43,.6)' : 'rgba(22,23,32,.6)';
+        g2.fillRect(col*sz, row*sz, sz, sz);
+      }
+    }
+
+    // Draw the watermark at the right position
+    _drawWatermark(g2, W, H, state.pos, state.style, state.opacity, scale);
+  }
+
+  function _drawWatermark(g, w, h, pos, style, opacity, scale){
+    if(!scale) scale=1;
+    g.save();
+    g.globalAlpha = opacity;
+
+    // Watermark dimensions
+    var baseH = Math.round(w * 0.055 * scale);
+    var pip_w = Math.round(baseH * 0.18);
+    var padding = Math.round(w * 0.035);
+    var safeBottom = Math.round(h * 0.06); // avoid FB/TikTok UI
+
+    // Text measurements
+    var nameSz = Math.round(baseH * 0.48);
+    var subSz  = Math.round(baseH * 0.28);
+    g.font = '700 '+nameSz+'px "Cinzel",serif';
+    var nameW = g.measureText('THE WALKING PARADOX').width;
+    g.font = '500 '+subSz+'px "DM Sans",sans-serif';
+    var subW  = g.measureText('walkingparadox').width;
+    var totalW = pip_w + Math.round(w*.018) + Math.max(nameW, subW);
+
+    // Position
+    var x, y;
+    switch(pos){
+      case 'tl': x=padding;           y=padding+safeBottom; break;
+      case 'tr': x=w-padding-totalW;  y=padding+safeBottom; break;
+      case 'tm': x=(w-totalW)/2;      y=padding+safeBottom; break;
+      case 'bl': x=padding;           y=h-safeBottom-baseH; break;
+      case 'br': x=w-padding-totalW;  y=h-safeBottom-baseH; break;
+      case 'bm': x=(w-totalW)/2;      y=h-safeBottom-baseH; break;
+      default:   x=w-padding-totalW;  y=h-safeBottom-baseH;
+    }
+
+    // Style colors
+    var colors = {
+      gold:  {name:'rgba(232,201,106,.95)', sub:'rgba(232,201,106,.65)', pip1:'#c9334a', pip2:'#4a7fc0', bg:'rgba(0,0,0,.45)'},
+      white: {name:'rgba(255,255,255,.95)', sub:'rgba(255,255,255,.65)', pip1:'#c9334a', pip2:'#4a7fc0', bg:'rgba(0,0,0,.45)'},
+      dark:  {name:'rgba(20,20,30,.95)',    sub:'rgba(20,20,30,.65)',    pip1:'#c9334a', pip2:'#4a7fc0', bg:'rgba(255,255,255,.55)'},
+      np:    {name:'rgba(232,201,106,.95)', sub:'rgba(255,255,255,.7)',  pip1:'#dc143c', pip2:'#003893', bg:'rgba(0,0,0,.5)'},
+    };
+    var c = colors[style] || colors.gold;
+
+    // Pill background
+    var bgPad = Math.round(baseH * 0.35);
+    var bgW = totalW + bgPad*2;
+    var bgH = baseH + bgPad;
+    var bgX = x - bgPad;
+    var bgY = y - bgPad*0.4;
+    var bgR = bgH/2;
+    g.fillStyle = c.bg;
+    g.beginPath();
+    g.moveTo(bgX+bgR, bgY);
+    g.lineTo(bgX+bgW-bgR, bgY);
+    g.arc(bgX+bgW-bgR, bgY+bgR, bgR, -Math.PI/2, Math.PI/2);
+    g.lineTo(bgX+bgR, bgY+bgH);
+    g.arc(bgX+bgR, bgY+bgR, bgR, Math.PI/2, -Math.PI/2);
+    g.closePath();
+    g.fill();
+
+    // Nepal pip
+    g.fillStyle = c.pip1;
+    g.fillRect(x, y, pip_w, baseH/2);
+    g.fillStyle = c.pip2;
+    g.fillRect(x, y+baseH/2, pip_w, baseH/2);
+
+    var textX = x + pip_w + Math.round(w*.018);
+
+    // Page name
+    g.font = '700 '+nameSz+'px "Cinzel",serif';
+    if('letterSpacing' in g) g.letterSpacing = '1px';
+    g.fillStyle = c.name;
+    g.textAlign = 'left';
+    g.fillText('THE WALKING PARADOX', textX, y+nameSz);
+
+    // Sub
+    g.font = '500 '+subSz+'px "DM Sans",sans-serif';
+    if('letterSpacing' in g) g.letterSpacing = '0.5px';
+    g.fillStyle = c.sub;
+    g.fillText('walkingparadox', textX, y+baseH-Math.round(subSz*.2));
+    if('letterSpacing' in g) g.letterSpacing = '0px';
+
+    g.restore();
+  }
+
+  function setFmt(f){
+    state.fmt=f;
+    ['Story','Square','Land','Fb'].forEach(function(k){
+      var el=document.getElementById('wmFmt'+k);
+      if(el) el.classList.toggle('on', k.toLowerCase()===f);
+    });
+    fitCv(); render();
+  }
+
+  function setPos(p){
+    state.pos=p;
+    ['TL','TR','TM','BL','BR','BM'].forEach(function(k){
+      var el=document.getElementById('wmPos'+k);
+      if(el) el.classList.toggle('on', k.toLowerCase()===p);
+    });
+    render();
+  }
+
+  function setStyle(s){
+    state.style=s;
+    ['Gold','White','Dark','Np'].forEach(function(k){
+      var el=document.getElementById('wmStyle'+k);
+      if(el) el.classList.toggle('on', k.toLowerCase()===s);
+    });
+    render();
+  }
+
+  function setOpacity(o){
+    state.opacity=o;
+    [30,50,70,100].forEach(function(v){
+      var el=document.getElementById('wmOp'+v);
+      if(el) el.classList.toggle('on', Math.round(o*100)===v);
+    });
+    render();
+  }
+
+  function setSize(s){
+    state.size=s;
+    ['S','M','L','XL'].forEach(function(k){
+      var el=document.getElementById('wmSz'+k);
+      if(el) el.classList.toggle('on', k.toLowerCase()===s);
+    });
+    render();
+  }
+
+  function download(){
+    if(!cv){init();} if(!cv) return;
+    // Render at full resolution on transparent background
+    var d=getDims(); cv.width=d.W; cv.height=d.H; W=d.W; H=d.H;
+    var scale=SIZE_SCALE[state.size]||1.0;
+    g2.clearRect(0,0,W,H); // fully transparent
+    _drawWatermark(g2,W,H,state.pos,state.style,state.opacity,scale);
+
+    var dataUrl = cv.toDataURL('image/png');
+    if(IS_IOS){
+      showSaveOverlay(dataUrl);
+      setToast('Long press the image to save as PNG');
+    } else {
+      var b=atob(dataUrl.split(',')[1]);
+      var arr=new Uint8Array(b.length);
+      for(var i=0;i<b.length;i++) arr[i]=b.charCodeAt(i);
+      dlBlob(new Blob([arr],{type:'image/png'}),'walkingparadox-watermark-'+state.fmt+'.png');
+      setToast('Watermark PNG saved!');
+    }
+    fitCv(); setTimeout(render,50);
+  }
+
+  function init(){
+    cv=document.getElementById('wmCv');
+    if(!cv){WP.log('error','WATERMARK: canvas not found');return;}
+    g2=cv.getContext('2d');
+    fitCv(); render();
+    WP.log('info','WATERMARK initialized');
+  }
+
+  function resize(){if(cv){fitCv();render();}}
+
+  return{init,resize,render,setFmt,setPos,setStyle,setOpacity,setSize,download,state};
+
+})();
 
 // ── EXPOSE TO WINDOW ──
 if(typeof cancelSrOverlay !== 'undefined') window.cancelSrOverlay = cancelSrOverlay;
@@ -7097,6 +7682,8 @@ if(typeof HOOK !== 'undefined') window.HOOK = HOOK;
 if(typeof CAPTION !== 'undefined') window.CAPTION = CAPTION;
 if(typeof REEL !== 'undefined') window.REEL = REEL;
 if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
+if(typeof REACT !== 'undefined') window.REACT = REACT;
+if(typeof WATERMARK !== 'undefined') window.WATERMARK = WATERMARK;
 if(typeof QC !== 'undefined') window.QC = QC;
 if(typeof DYK !== 'undefined') window.DYK = DYK;
 if(typeof SHLOKA !== 'undefined') window.SHLOKA = SHLOKA;
@@ -7107,14 +7694,21 @@ if(typeof HOOK !== 'undefined') window.HOOK = HOOK;
 if(typeof CAPTION !== 'undefined') window.CAPTION = CAPTION;
 if(typeof REEL !== 'undefined') window.REEL = REEL;
 if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
+if(typeof REACT !== 'undefined') window.REACT = REACT;
+if(typeof WATERMARK !== 'undefined') window.WATERMARK = WATERMARK;
 
 
 } catch(startupErr) {
+  var errMsg = startupErr.message || String(startupErr);
+  var errLine = startupErr.lineNumber || startupErr.line || '?';
+  var errStack = startupErr.stack ? startupErr.stack.split('\n').slice(0,4).join('\n') : '';
+  console.error('[WP startup crash]', errMsg, errStack);
   document.body.style.cssText = 'background:#0c0d15;color:#e8c96a;padding:24px;font-family:monospace;font-size:13px;line-height:1.8;';
   document.body.innerHTML = '<h2 style="color:#e8c96a;margin-bottom:16px">Studio startup error</h2>'
-    + '<p style="color:#c9334a;margin-bottom:8px;font-size:14px"><strong>' + (startupErr.message||startupErr) + '</strong></p>'
-    + '<p style="color:#a09b8e">Line: ' + (startupErr.lineNumber||startupErr.line||'?') + '</p>'
-    + '<p style="color:#55534e;font-size:11px;margin-top:16px">Open in Safari. Hard refresh: hold the reload button.</p>';
+    + '<p style="color:#c9334a;margin-bottom:8px;font-size:14px"><strong>' + errMsg + '</strong></p>'
+    + '<p style="color:#a09b8e;font-size:11px">Line: ' + errLine + '</p>'
+    + (errStack ? '<pre style="color:#55534e;font-size:9px;margin-top:8px;white-space:pre-wrap">' + errStack + '</pre>' : '')
+    + '<p style="color:#55534e;font-size:11px;margin-top:16px">Hard refresh: hold reload button in Safari.</p>';
 }
 
 })();</script>
@@ -7195,6 +7789,184 @@ if(typeof CAROUSEL !== 'undefined') window.CAROUSEL = CAROUSEL;
       <button class="abtn prev-btn" onclick="CAROUSEL.saveSlide()">⬇ Save This</button>
       <button class="abtn gold-btn" onclick="CAROUSEL.downloadAll()">📦 All Slides</button>
       <button class="abtn prev-btn" style="flex:.7" onclick="CAROUSEL.nextSlide()">›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     REACT — REACTION / DUET CARD MAKER
+     Long-form analysis card for duet content
+══════════════════════════════════════════ -->
+<div class="tool-section" id="ts-react">
+  <div class="side-panel">
+    <div class="side-inner">
+
+      <div>
+        <div class="sec-lbl">What are you reacting to?</div>
+        <input class="fi" id="reactTopic" placeholder="e.g. संसद्को हिजोको विवाद" oninput="REACT.update()"/>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Your Analysis</div>
+        <textarea class="fi" id="reactBody" rows="7"
+          placeholder="Write full analysis — Nepali, English or mixed. Press Enter for new paragraph."
+          oninput="REACT.update()"></textarea>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Engagement Question <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none;letter-spacing:0">(optional — drives comments)</span></div>
+        <input class="fi" id="reactQuestion"
+          placeholder="तपाईं के सोच्नुहुन्छ? Comment मा लेख्नुस्..."
+          oninput="REACT.update()" style="margin-bottom:0"/>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Card Style</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="reactStyleDark"    onclick="REACT.setStyle('dark')">Dark</button>
+          <button class="chip-btn"    id="reactStyleCrimson" onclick="REACT.setStyle('crimson')">Crimson</button>
+          <button class="chip-btn"    id="reactStyleGold"    onclick="REACT.setStyle('gold')">Gold</button>
+          <button class="chip-btn"    id="reactStyleBlue"    onclick="REACT.setStyle('blue')">Blue</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Format</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="reactFmtStory"  onclick="REACT.setFmt('story')">📱 9:16 Duet</button>
+          <button class="chip-btn"    id="reactFmtSquare" onclick="REACT.setFmt('square')">⬛ 1:1 Feed</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Topic / Header Size</div>
+        <div id="reactTopicSizeBtns" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px">
+          <button data-sz="24" onclick="REACT.setTopicSize(24)" style="padding:8px 4px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">S</button>
+          <button data-sz="36" onclick="REACT.setTopicSize(36)" style="padding:8px 4px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--gd);background:var(--card);color:var(--t1)">M</button>
+          <button data-sz="50" onclick="REACT.setTopicSize(50)" style="padding:8px 4px;border-radius:7px;font-size:15px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">L</button>
+          <button data-sz="68" onclick="REACT.setTopicSize(68)" style="padding:8px 4px;border-radius:7px;font-size:18px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">XL</button>
+        </div>
+        <div class="sec-lbl" style="margin-top:4px">Body Text Size</div>
+        <div id="reactSizeBtns" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <button data-sz="28" onclick="REACT.setSize(28)" style="padding:9px 4px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">S</button>
+          <button data-sz="38" onclick="REACT.setSize(38)" style="padding:9px 4px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--gd);background:var(--card);color:var(--t1)">M</button>
+          <button data-sz="50" onclick="REACT.setSize(50)" style="padding:9px 4px;border-radius:7px;font-size:16px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">L</button>
+          <button data-sz="64" onclick="REACT.setSize(64)" style="padding:9px 4px;border-radius:7px;font-size:19px;font-weight:700;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:var(--t1)">XL</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Text Color</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <button onclick="REACT.setTextColor('rgba(210,203,190,.9)')"  style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--gd);background:var(--card);color:rgba(210,203,190,.9)">Warm</button>
+          <button onclick="REACT.setTextColor('rgba(255,255,255,.9)')"  style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:#fff">White</button>
+          <button onclick="REACT.setTextColor('rgba(232,201,106,.9)')"  style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:#e8c96a">Gold</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Question Color</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <button onclick="REACT.setQColor('#e8c96a')"              style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--gd);background:var(--card);color:#e8c96a">Gold</button>
+          <button onclick="REACT.setQColor('#c9334a')"              style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:#c9334a">Crimson</button>
+          <button onclick="REACT.setQColor('rgba(140,190,255,.95)')" style="padding:8px;border-radius:7px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid var(--b2);background:var(--card);color:rgba(140,190,255,.95)">Blue</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="canvas-wrap"><canvas id="reactCv"></canvas></div>
+    <div class="act-bar" id="reactBarMob">
+      <button class="abtn prev-btn" onclick="REACT.render()">↻ Refresh</button>
+      <button class="abtn gold-btn" onclick="REACT.download()">⬇ Save Card</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     WATERMARK — TRANSPARENT OVERLAY GENERATOR
+     For use in CapCut over any video
+══════════════════════════════════════════ -->
+<div class="tool-section" id="ts-watermark">
+  <div class="side-panel">
+    <div class="side-inner">
+
+      <div>
+        <div class="sec-lbl">Video Format</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="wmFmtStory"  onclick="WATERMARK.setFmt('story')">📱 9:16 Reels</button>
+          <button class="chip-btn"    id="wmFmtSquare" onclick="WATERMARK.setFmt('square')">⬛ 1:1 Feed</button>
+          <button class="chip-btn"    id="wmFmtLand"   onclick="WATERMARK.setFmt('land')">🖥 16:9 YouTube</button>
+          <button class="chip-btn"    id="wmFmtFb"     onclick="WATERMARK.setFmt('fb')">👥 FB Feed</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Position</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <button class="chip-btn" id="wmPosTL" onclick="WATERMARK.setPos('tl')">↖ Top Left</button>
+          <button class="chip-btn" id="wmPosTR" onclick="WATERMARK.setPos('tr')">↗ Top Right</button>
+          <button class="chip-btn" id="wmPosTM" onclick="WATERMARK.setPos('tm')">⬆ Top Mid</button>
+          <button class="chip-btn" id="wmPosBL" onclick="WATERMARK.setPos('bl')">↙ Bot Left</button>
+          <button class="chip-btn on" id="wmPosBR" onclick="WATERMARK.setPos('br')">↘ Bot Right</button>
+          <button class="chip-btn" id="wmPosBM" onclick="WATERMARK.setPos('bm')">⬇ Bot Mid</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Style</div>
+        <div class="grid2">
+          <button class="chip-btn on" id="wmStyleGold"   onclick="WATERMARK.setStyle('gold')">Gold</button>
+          <button class="chip-btn"    id="wmStyleWhite"  onclick="WATERMARK.setStyle('white')">White</button>
+          <button class="chip-btn"    id="wmStyleDark"   onclick="WATERMARK.setStyle('dark')">Dark</button>
+          <button class="chip-btn"    id="wmStyleNp"     onclick="WATERMARK.setStyle('np')">🇳🇵 Nepal</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Opacity</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <button class="chip-btn" id="wmOp30" onclick="WATERMARK.setOpacity(.3)">30%</button>
+          <button class="chip-btn" id="wmOp50" onclick="WATERMARK.setOpacity(.5)">50%</button>
+          <button class="chip-btn on" id="wmOp70" onclick="WATERMARK.setOpacity(.7)">70%</button>
+          <button class="chip-btn" id="wmOp100" onclick="WATERMARK.setOpacity(1)">100%</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl">Size</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+          <button class="chip-btn" id="wmSzS" onclick="WATERMARK.setSize('s')">S</button>
+          <button class="chip-btn on" id="wmSzM" onclick="WATERMARK.setSize('m')">M</button>
+          <button class="chip-btn" id="wmSzL" onclick="WATERMARK.setSize('l')">L</button>
+          <button class="chip-btn" id="wmSzXL" onclick="WATERMARK.setSize('xl')">XL</button>
+        </div>
+      </div>
+
+      <div style="background:var(--card);border-radius:10px;padding:14px;margin-top:4px">
+        <div style="font-size:11px;color:var(--gd);font-weight:600;margin-bottom:8px">📱 How to use in CapCut:</div>
+        <div style="font-size:10px;color:var(--t2);line-height:1.9">
+          1. Save the watermark PNG below<br>
+          2. Open CapCut → import your video<br>
+          3. Tap <strong style="color:var(--t1)">Overlay</strong> → Add Overlay<br>
+          4. Select the watermark PNG<br>
+          5. Pinch to resize → position → export<br>
+          <span style="color:var(--t3)">CapCut remembers it — reuse anytime</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div style="font-size:10px;color:var(--t3);text-align:center;margin-bottom:8px">
+      Preview (transparent background shown as dark)
+    </div>
+    <div class="canvas-wrap"><canvas id="wmCv"></canvas></div>
+    <div class="act-bar" id="wmBarMob">
+      <button class="abtn gold-btn" onclick="WATERMARK.download()">⬇ Save Watermark PNG</button>
     </div>
   </div>
 </div>
