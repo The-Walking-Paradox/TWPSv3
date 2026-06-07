@@ -2055,7 +2055,6 @@ const CAN_WEBM = (function(){
     return true; // APIs exist — let export attempt handle any runtime failures
   }catch(e){ return false; }
 })();
-console.log('[WP] CAN_WEBM:', CAN_WEBM, '| MediaRecorder:', typeof MediaRecorder, '| captureStream:', !!HTMLCanvasElement.prototype.captureStream, '| IN_IFRAME:', IN_IFRAME);
 
 // ═══════════════════════════════════════════════════
 // SHARED CONSTANTS
@@ -2702,14 +2701,11 @@ function setToast(msg){const t=document.getElementById('toast');t.textContent=ms
 // ═══════════════════════════════════════════════════
 // Build export options dynamically based on device
 function getExpOpts(){
-  const opts=[
+  return [
+    {id:'webm', title:'🎬 WebM Video (direct)', sub:'Downloads animation as video. Works on Chrome/Firefox. Safari will show error.', badge:'Chrome/Firefox', bc:'bc'},
     {id:'zip',  title:'📦 Frame ZIP → CapCut',  sub:'Works on ALL devices. Renders frames, downloads ZIP. Open in CapCut → auto-assembles into video → add music → post.', badge:'Works Everywhere', bc:'bw'},
     {id:'png',  title:'🖼 Single Frame PNG',     sub:'Saves one image of the current frame. Perfect for static posts.',                                                          badge:'Always Works',    bc:'bw'},
   ];
-  if(CAN_WEBM){
-    opts.splice(1,0,{id:'webm', title:'🎬 WebM Video (direct)', sub:'Records video directly in your browser. Download then import into CapCut.', badge:'Supported on this device', bc:'bc'});
-  }
-  return opts;
 }
 // EXP_OPTS evaluated fresh inside buildExpPanel
 function buildExpPanel(panelId,getMethod,setMethod,render){
@@ -4205,8 +4201,8 @@ function switchTool(tool){
   });
   // Lazy init for canvases that need visible parent for dimensions
   if(tool==='intro'&&!_iInited){_iInited=true;setTimeout(()=>{iInit();},50);}
-  if(tool==='top10'&&!_vInited){_vInited=true;setTimeout(()=>{vFitCv();vBuildItems();buildBgRow('vBgRow','himalaya',id=>{vS.bg=id;vRender(0);});vRender(0);},50);}
-  if(tool==='quiz'&&!_qInited){_qInited=true;setTimeout(()=>{qFitCv();qBuildList();buildBgRow('qBgRow','himalaya',id=>{qS.bg=id;qRender(0);});qRender(0);},50);}
+  if(tool==='top10'&&!_vInited){_vInited=true;setTimeout(()=>{vInit();},50);}
+  if(tool==='quiz'&&!_qInited){_qInited=true;setTimeout(()=>{qInit();},50);}
   if(tool==='quote'  &&!_qcInited) {_qcInited=true;  setTimeout(function(){QC.init();},60);}
   if(tool==='dyk'    &&!_dykInited){_dykInited=true;  setTimeout(function(){DYK.init();},60);}
   if(tool==='shloka' &&!_slInited) {_slInited=true;   setTimeout(function(){SHLOKA.init();},60);}
