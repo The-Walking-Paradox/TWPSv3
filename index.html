@@ -2046,18 +2046,13 @@ function validateImageFile(file, statusId){
 const IN_IFRAME= (()=>{try{return window.self!==window.top;}catch(e){return true;}})();
 // CAN_WEBM: pure capability check — if the APIs exist, let it try
 // Removed IS_IOS block so iPad Chrome can export video if browser supports it
-// CAN_WEBM: check APIs exist — don't try to use them at parse time
+// CAN_WEBM: only check that the APIs exist — mime check can fail in some contexts
 const CAN_WEBM = (function(){
   try{
     if(IN_IFRAME) return false;
     if(typeof MediaRecorder === 'undefined') return false;
-    if(typeof HTMLCanvasElement === 'undefined') return false;
     if(!HTMLCanvasElement.prototype.captureStream) return false;
-    // Check mime support without creating a stream
-    var mimeOk = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ||
-                 MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ||
-                 MediaRecorder.isTypeSupported('video/webm');
-    return mimeOk;
+    return true; // APIs exist — let export attempt handle any runtime failures
   }catch(e){ return false; }
 })();
 console.log('[WP] CAN_WEBM:', CAN_WEBM, '| MediaRecorder:', typeof MediaRecorder, '| captureStream:', !!HTMLCanvasElement.prototype.captureStream, '| IN_IFRAME:', IN_IFRAME);
@@ -4230,10 +4225,10 @@ function switchTool(tool){
 function checkLayout(){
   const isD=window.innerWidth>=860;
   const bars=TOOL_BARS[activeTool];
-  if(bars){
-    document.getElementById(bars[0]).style.display=isD?'none':'flex';
-    document.getElementById(bars[1]).style.display=isD?'flex':'none';
-  }
+  if(!bars) return;
+  // Some tools only have mobile bar (no desktop bar) — handle both cases
+  if(bars[0]){var b0=document.getElementById(bars[0]);if(b0)b0.style.display=bars[1]?(isD?'none':'flex'):'flex';}
+  if(bars[1]){var b1=document.getElementById(bars[1]);if(b1)b1.style.display=isD?'flex':'none';}
 }
 
 // ═══════════════════════════════════════════════════
